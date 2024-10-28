@@ -7,17 +7,19 @@ import pandas as pd
 import asyncpg
 from bs4 import BeautifulSoup
 from datetime import datetime
+import os
+from dotenv.main import load_dotenv
 
+load_dotenv()
 DB_CONFIG = {
-    "user": "patrick",
-    "password": "Getting Started",
-    "database": "postgres",
-    "host": "localhost",
-    "port": "5432"
+    "user": os.environ['USER'],
+    "password": os.environ['PASSWORD'],
+    "database": os.environ['DATABASE'],
+    "host": os.environ['HOST'],
+    "port": os.environ['PORT'],
 }
 CSV_OUTPUT = "products.csv"
 
-# Ініціалізація бази даних PostgreSQL та таблиці
 async def init_db():
     conn = await asyncpg.connect(**DB_CONFIG)
     await conn.execute('''
@@ -40,7 +42,6 @@ async def init_db():
     ''')
     await conn.close()
 
-# Збереження запису в базу даних PostgreSQL
 async def save_to_db(data):
     conn = await asyncpg.connect(**DB_CONFIG)
     await conn.execute('''
@@ -58,7 +59,6 @@ async def save_to_db(data):
                        datetime.now())
     await conn.close()
 
-# Отримання прогресу скрейпінгу
 async def get_scraped_urls():
     conn = await asyncpg.connect(**DB_CONFIG)
     rows = await conn.fetch("SELECT supplier_url FROM products")
@@ -66,7 +66,6 @@ async def get_scraped_urls():
     await conn.close()
     return urls
 
-# Функція для отримання HTML сторінки
 async def fetch_page(session, url):
     try:
         async with session.get(url, ssl=False) as response:
@@ -98,7 +97,6 @@ async def scrape_catalog(session, url, limit=10, max_retries=10):
         product_elements = product_container.find_all('div', {'data-testid': 'product-card'})
 
         for product in product_elements:
-            # Check if the product is still in loading state
             if product.find('div', class_='ant-spin-spinning'):
                 continue
 
@@ -117,7 +115,6 @@ async def scrape_catalog(session, url, limit=10, max_retries=10):
 async def main():
     catalog_url = "https://store.igefa.de/c/waschraum-hygiene/AycY6LWMba5cXn5esuFfRL"
     async with aiohttp.ClientSession() as session:
-        # Отримати посилання на продукти з каталогу
         product_links = await scrape_catalog(session, catalog_url, limit=10)
 
         if product_links:
@@ -135,28 +132,22 @@ async def scrape_product(session, url):
 
     soup = BeautifulSoup(html, 'html.parser')
 
-    # Зчитуємо назву продукту
     name_tag = soup.find("span", {"data-testid": "productCard_productName"})
     name = name_tag.text if name_tag else "Невідомо"
 
-    # Логування назви продукту
     print(f"Назва продукту: {name}")
 
-    # Зчитуємо зображення продукту
     img_tag = soup.find("div", class_="ProductCard_imageHolder__f4e96").find("img")
     img_url = img_tag['src'] if img_tag else None
 
-    # Логування URL зображення
     print(f"URL зображення: {img_url}")
 
     # Зчитуємо артикул товару
     sku_tag = soup.find("div", {"data-testid": "product-information-sku"})
     sku = sku_tag.text if sku_tag else "Невідомо"
 
-    # Логування артикула
     print(f"Артикул: {sku}")
 
-    # Додайте перевірку наявності даних
     if name == "Невідомо" and img_url is None and sku == "Невідомо":
         print(f"Не вдалося отримати дані для: {url}")
         return None

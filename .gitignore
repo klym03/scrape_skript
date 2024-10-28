@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+ENV/
+env/
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Byte-compiled files
+*.py[cod]
+
+# Log files
+*.log
+
+# CSV files
+*.csv
+
+# Pytest cache
+.cache/
+*.pytest_cache/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables
+.env
+*.env
+
+# PyCharm project files
+.idea/
+
+# VS Code project files
+.vscode/
