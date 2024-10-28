@@ -27,8 +27,11 @@ DB_PASSWORD=your_db_password
 DB_NAME=your_db_name
 DB_HOST=localhost
 DB_PORT=5432
+3. Встановіть залежності:
 
-3.Щоб запустити скрейпер, виконайте наступну команду:
+    ```bash
+    pip install -r requirements.txt
+4. Щоб запустити скрейпер, виконайте наступну команду:
 
     ```bash
     python main.py
