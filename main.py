@@ -1,6 +1,5 @@
 import csv
 import time
-
 import aiohttp
 import asyncio
 import pandas as pd
@@ -9,6 +8,8 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import os
 from dotenv.main import load_dotenv
+from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 
 load_dotenv()
 DB_CONFIG = {
@@ -78,52 +79,49 @@ async def fetch_page(session, url):
         print(f"Помилка при завантаженні {url}: {e}")
         return None
 
-async def scrape_catalog(session, url, limit=10, max_retries=10):
-    retries = 0
+async def scrape_catalog(session, url):
     product_links = []
 
-    while retries < max_retries and len(product_links) < limit:
-        html = await fetch_page(session, url)
-        if html is None:
-            return []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(url)
 
-        soup = BeautifulSoup(html, 'html.parser')
-        product_container = soup.find('div', {'data-testid': 'test-product-collection'})
+        # Очікування, поки продукти завантажаться на сторінці
+        await page.wait_for_selector("div[data-testid='product-card']")
 
-        if not product_container:
-            print("Контейнер товарів не знайдено.")
-            return []
+        # Очікування, поки зникне спінер завантаження
+        await page.wait_for_selector("div.ant-spin-spinning", state="hidden")
 
-        product_elements = product_container.find_all('div', {'data-testid': 'product-card'})
-
+        # Збір посилань на продукти
+        product_elements = await page.query_selector_all("div[data-testid='product-card']")
         for product in product_elements:
-            if product.find('div', class_='ant-spin-spinning'):
-                continue
+            link_tag = await product.query_selector("a")
+            if link_tag:
+                product_url = await link_tag.get_attribute("href")
+                if product_url:
+                    product_links.append(product_url)
+                else:
+                    print("URL не знайдено у <a> тегу.")
+            else:
+                print("Тег <a> не знайдено у продукті.")
+                print(await product.inner_html())  # Log the HTML content of the product element
 
-            link_element = product.find('a')
-            if link_element and 'href' in link_element.attrs:
-                product_links.append('https://store.igefa.de' + link_element['href'])
-
-        if len(product_links) < limit:
-            print("Елементи товарів ще завантажуються. Очікування...")
-            await asyncio.sleep(2)
-            retries += 1
-
-    return product_links[:limit]
+        await browser.close()
+    print(f"Знайдено {len(product_links)} посилань на продукти.")
+    print(product_links)
+    return product_links
 
 
 async def main():
     catalog_url = "https://store.igefa.de/c/waschraum-hygiene/AycY6LWMba5cXn5esuFfRL"
     async with aiohttp.ClientSession() as session:
-        product_links = await scrape_catalog(session, catalog_url, limit=10)
+        product_links = await scrape_catalog(session, catalog_url)
 
         if product_links:
             print(f"Знайдено {len(product_links)} товарів.")
         else:
             print("Не вдалося знайти продукти.")
-
-
-
 
 async def scrape_product(session, url):
     html = await fetch_page(session, url)
@@ -159,8 +157,6 @@ async def scrape_product(session, url):
         "Product URL": url
     }
 
-
-
 async def save_to_csv(products, filename="products.csv"):
     keys = products[0].keys()
     with open(filename, "w", newline="") as csvfile:
@@ -168,8 +164,5 @@ async def save_to_csv(products, filename="products.csv"):
         writer.writeheader()
         writer.writerows(products)
     print(f"Дані збережено у файл {filename}")
-
-
-
 
 asyncio.run(main())
